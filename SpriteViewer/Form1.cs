@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Drawing;
+using System.IO;
+using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using BBData;
@@ -84,6 +86,7 @@ namespace SpriteViewer
                 imglist.ImageSize = new Size(
                     mfb.Width <= 256 ? mfb.Width : 256,
                     mfb.Height <= 256 ? mfb.Height : 256);
+
                 imglist.Images.AddRange(mfb.Entries.ToArray());
 
                 spritesBox.BeginUpdate();
@@ -144,6 +147,248 @@ namespace SpriteViewer
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Close();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void DumpAllMFBToPNG()
+        {
+            var folderBrowserDialog = new FolderBrowserDialog();
+            if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+            {
+                string rootSaveDirectory = folderBrowserDialog.SelectedPath;
+
+                var msgBox = new AutoClosingMessageBox();
+                msgBox.Show();
+
+                foreach (var entry in video.Entries)
+                {
+                    if (Path.GetExtension(entry.Filename) == ".mfb")
+                    {
+                        try
+                        {
+                            var mfb = new MFBFile(entry.Data, palette);
+                            string baseFilename = Path.GetFileNameWithoutExtension(entry.Filename);
+                            string saveDirectory = Path.Combine(rootSaveDirectory, $"{baseFilename}_sprites");
+
+                            if (!Directory.Exists(saveDirectory))
+                                Directory.CreateDirectory(saveDirectory);
+
+                            for (var i = 0; i < mfb.Entries.Count; i++)
+                            {
+                                string pngFilePath = Path.Combine(saveDirectory, $"{baseFilename}{i}.png");
+                                mfb.Entries[i].Save(pngFilePath, ImageFormat.Png);
+                            }
+
+                            msgBox.AppendMessage($"Dumped {mfb.Entries.Count} sprites to {saveDirectory}.");
+                        }
+                        catch (Exception ex)
+                        {
+                            msgBox.AppendMessage($"An error occurred while processing {entry.Filename}: {ex.Message}");
+                        }
+                    }
+                }
+
+                msgBox.EnableOkButton();
+            }
+        }
+
+
+        private void DumpMFBToPNG()
+        {
+            if (filesBox.SelectedIndex == -1)
+            {
+                MessageBox.Show("No MFB file selected.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            using (var folderBrowserDialog = new FolderBrowserDialog())
+            {
+                if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+                {
+                    string saveDirectory = folderBrowserDialog.SelectedPath;
+                    try
+                    {
+                        string selectedFileName = filesBox.SelectedItem.ToString();
+                        var mfb = new MFBFile(video.Entries.Find(
+                            item => item.Filename == selectedFileName).Data, palette);
+
+                        string baseFilename = Path.GetFileNameWithoutExtension(selectedFileName);
+
+                        for (var i = 0; i < mfb.Entries.Count; i++)
+                        {
+                            string pngFilePath = Path.Combine(saveDirectory, $"{baseFilename}_{i}.png");
+                            mfb.Entries[i].Save(pngFilePath, ImageFormat.Png);
+                        }
+
+                        MessageBox.Show($"Dumped {mfb.Entries.Count} sprites to {saveDirectory}.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void DumpSpriteToPNG()
+        {
+            if (filesBox.SelectedItems.Count == 0)
+            {
+                MessageBox.Show("No MFB file selected.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (spritesBox.SelectedItems.Count == 0)
+            {
+                MessageBox.Show("No sprite selected.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            using (var folderBrowserDialog = new FolderBrowserDialog())
+            {
+                if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+                {
+                    string saveDirectory = folderBrowserDialog.SelectedPath;
+                    try
+                    {
+                        string selectedFileName = filesBox.SelectedItems[0].ToString();
+                        var mfb = new MFBFile(video.Entries.Find(
+                            item => item.Filename == selectedFileName).Data, palette);
+
+                        string baseFilename = Path.GetFileNameWithoutExtension(selectedFileName);
+
+                        // Loop through all selected sprites
+                        foreach (ListViewItem selectedItem in spritesBox.SelectedItems)
+                        {
+                            int selectedSpriteIndex = selectedItem.Index;
+                            string pngFilePath = Path.Combine(saveDirectory, $"{baseFilename}_{selectedSpriteIndex}.png");
+                            mfb.Entries[selectedSpriteIndex].Save(pngFilePath, ImageFormat.Png);
+                        }
+
+                        MessageBox.Show($"Dumped {spritesBox.SelectedItems.Count} sprite(s) to {saveDirectory}.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+
+        private void btnExtract_Click(object sender, EventArgs e)
+        {
+            DumpAllMFBToPNG();
+        }
+
+        private void btnExtractSelected_Click(object sender, EventArgs e)
+        {
+            DumpMFBToPNG();
+        }
+
+        private void btnExtractSelectedSprite_Click(object sender, EventArgs e)
+        {
+            DumpSpriteToPNG();
+        }
+
+        private void readmeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            InfoForm infoForm = new InfoForm();
+            infoForm.ShowDialog();
+        }
+
+        private void btnDumpSaveList_Click(object sender, EventArgs e)
+        {
+            DumpAllSaveList();
+        }
+
+        private void btnSaveListAdd_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (filesBox.SelectedIndex != -1)
+                {
+                    listBoxSave.Items.Add(filesBox.SelectedItem);
+                }
+                else
+                {
+                    MessageBox.Show("No MFB file selected in the files box.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnSaveListRemove_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (listBoxSave.SelectedIndex != -1)
+                {
+                    listBoxSave.Items.RemoveAt(listBoxSave.SelectedIndex);
+                }
+                else
+                {
+                    MessageBox.Show("No MFB file selected in the save list box.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnSaveListClear_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Are you sure you want to clear the save list box?", "Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                listBoxSave.Items.Clear();
+            }
+        }
+
+        private void DumpAllSaveList()
+        {
+            if (listBoxSave.Items.Count == 0)
+            {
+                MessageBox.Show("No MFB file selected in the save list.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            using (var folderBrowserDialog = new FolderBrowserDialog())
+            {
+                if (folderBrowserDialog.ShowDialog() == DialogResult.OK)
+                {
+                    string saveDirectory = folderBrowserDialog.SelectedPath;
+                    try
+                    {
+                        foreach (string selectedFileName in listBoxSave.Items)
+                        {
+                            var mfb = new MFBFile(video.Entries.Find(
+                                item => item.Filename == selectedFileName).Data, palette);
+
+                            string baseFilename = Path.GetFileNameWithoutExtension(selectedFileName);
+
+                            for (var i = 0; i < mfb.Entries.Count; i++)
+                            {
+                                string pngFilePath = Path.Combine(saveDirectory, $"{baseFilename}_{i}.png");
+                                mfb.Entries[i].Save(pngFilePath, ImageFormat.Png);
+                            }
+                        }
+
+                        MessageBox.Show($"Dumped all sprites from selected MFB files to {saveDirectory}.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
         }
     }
 }

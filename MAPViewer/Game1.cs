@@ -110,7 +110,7 @@ namespace MAPViewer
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message,
+                System.Windows.Forms.MessageBox.Show(ex.Message,
                     "Exception: LoadContent", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -163,9 +163,9 @@ namespace MAPViewer
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{ex.Message}{Environment.NewLine}This application will be terminated.",
+                System.Windows.Forms.MessageBox.Show($"{ex.Message}{Environment.NewLine}This application will be terminated.",
                     "Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Exit();
+                //Exit();
             }
 
             var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
